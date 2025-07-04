@@ -237,4 +237,159 @@
                                     <div class="bg-stone-50 px-5 py-3 border-t border-stone-200">
                                          <p class="text-xs text-right text-stone-600">Learn More &rarr;</p>
                                     </div>
-              
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            renderChart();
+        }
+
+        function getIntroText(categoryId) {
+            const intros = {
+                mapping: 'Artists here use the language of cartography not to chart land, but to map subjective worlds: the psyche, the state of exile, or a nation’s hidden emotional landscape.',
+                building: 'This section explores the exchange between art and architecture. See how architects use art to envision buildings and how artists use architectural logic to create functionless, conceptual forms.',
+                instructing: 'Explore art that exists as a set of instructions. These artists appropriate the format of the manual to question authorship, critique consumerism, and turn the viewer into a participant.',
+                revealing: 'The diagram, a tool for clarity, is used by these artists as a forensic instrument. They create intricate visual networks to expose hidden systems of power, corruption, and influence.',
+                classifying: 'By adopting the methods of science and history—collecting, classifying, archiving—these artists critique the very institutions that claim to produce objective truth.',
+                interpreting: 'In the age of Big Data, these artists act as translators. They use raw data, algorithms, and AI as their artistic material, transforming invisible information streams into tangible, sensory experiences.'
+            };
+            return intros[categoryId] || '';
+        }
+
+        function renderChart() {
+            const chartCanvas = document.getElementById('overview-chart');
+            if (!chartCanvas) return;
+
+            const categoriesForChart = appData.categories.filter(c => c.id !== 'overview');
+            const labels = categoriesForChart.map(c => c.name);
+            const data = categoriesForChart.map(c => appData.artists.filter(a => a.category === c.id).length);
+
+            new Chart(chartCanvas.getContext('2d'), {
+                type: 'polarArea',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Artists',
+                        data: data,
+                        backgroundColor: [
+                            'rgba(178, 106, 4, 0.5)',
+                            'rgba(12, 74, 110, 0.5)',
+                            'rgba(13, 148, 136, 0.5)',
+                            'rgba(190, 24, 93, 0.5)',
+                            'rgba(55, 48, 163, 0.5)',
+                            'rgba(100, 116, 139, 0.5)'
+                        ],
+                         borderColor: [
+                            'rgba(178, 106, 4, 1)',
+                            'rgba(12, 74, 110, 1)',
+                            'rgba(13, 148, 136, 1)',
+                            'rgba(190, 24, 93, 1)',
+                            'rgba(55, 48, 163, 1)',
+                            'rgba(100, 116, 139, 1)'
+                        ],
+                        borderWidth: 1.5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            ticks: { display: false },
+                            grid: { circular: true }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                font: { size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${context.raw} artists`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function setupNavEvents() {
+            navContainer.addEventListener('click', (e) => {
+                const link = e.target.closest('a.nav-link');
+                if (link) {
+                    e.preventDefault();
+                    const category = link.dataset.category;
+                    showContent(category);
+                }
+            });
+        }
+        
+        function setupCardEvents() {
+            contentContainer.addEventListener('click', (e) => {
+                const card = e.target.closest('.artist-card');
+                if (card) {
+                    const artistId = card.dataset.artistId;
+                    showModal(artistId);
+                }
+            });
+        }
+
+        function showContent(categoryId) {
+            document.querySelectorAll('.content-section').forEach(sec => sec.style.display = 'none');
+            document.getElementById(categoryId).style.display = 'block';
+
+            document.querySelectorAll('a.nav-link').forEach(link => {
+                link.classList.toggle('active-nav', link.dataset.category === categoryId);
+            });
+        }
+
+        function showModal(artistId) {
+            const artist = appData.artists.find(a => a.id === artistId);
+            if (artist) {
+                modalBody.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h2 class="text-3xl font-bold text-amber-900">${artist.name}</h2>
+                            <p class="text-md text-stone-500 mt-1">Appropriated Form: <strong>${artist.form}</strong></p>
+                            <p class="text-sm text-stone-500">Key Work: <em>${artist.work}</em></p>
+                        </div>
+                    </div>
+                    <div class="my-6">
+                        <h4 class="font-semibold text-lg mb-2">Conceptual Visualization</h4>
+                        <div class="rounded-lg overflow-hidden border border-stone-200">${artist.viz}</div>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-lg mb-2">Summary</h4>
+                        <p class="text-stone-700 leading-relaxed">${artist.summary}</p>
+                    </div>
+                `;
+                modal.style.display = 'flex';
+            }
+        }
+
+        function closeModal() {
+            modal.style.display = 'none';
+        }
+
+        document.addEventListener('DOMContentLoaded', initApp);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === "Escape" && modal.style.display === 'flex') {
+                closeModal();
+            }
+        });
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
