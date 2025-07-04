@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drawing the Unseen: An Interactive Exploration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals & Subtle Accents -->
+    <!-- Application Structure Plan: The SPA uses a thematic, non-linear structure. Users navigate via six core themes of appropriation (Mapping, Building, Instructing, etc.) rather than the report's linear chapters. This encourages exploration and comparison. Selecting a theme displays a grid of relevant artist cards. Clicking a card opens a modal with detailed information and a conceptual visualization of their work. This design prioritizes user-driven discovery over passive reading, making the dense information more accessible and engaging. -->
+    <!-- Visualization & Content Choices: 
+        1. Report Info: Artist distribution across conceptual categories. Goal: Provide a visual, interactive overview of the report's contents. Viz/Presentation: Chart.js Polar Area Chart. Interaction: Hover to see category and artist count. Justification: More engaging than a static table of contents; visualizes the report's structure. Library: Chart.js.
+        2. Report Info: Individual artist case studies. Goal: Present detailed information for each artist. Viz/Presentation: HTML/CSS grid of clickable cards opening a modal window. A simple CSS/Canvas graphic conceptually represents the artist's work. Interaction: Click to expand. Justification: Clean, organized way to present detailed content without overwhelming the main view. Avoids images, using code-based visuals.
+        3. Report Info: Overarching themes (e.g., Conceptual Art). Goal: Provide context. Viz/Presentation: Styled text blocks with clear typography. Interaction: Minimal hover effects. Justification: Legible and integrates seamlessly.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .active-nav { color: #854d0e; border-bottom-color: #854d0e; }
+        .modal { display: none; }
+        .modal-content { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        .chart-container { position: relative; width: 100%; max-width: 500px; margin-left: auto; margin-right: auto; height: 300px; max-height: 400px; }
+        @media (min-width: 768px) { .chart-container { height: 400px; } }
+        .artist-card { transition: transform 0.2s ease-out, box-shadow 0.2s ease-out; }
+        .artist-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-800">
+
+    <div id="app" class="container mx-auto px-4 py-8 md:py-12">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl md:text-5xl font-bold text-amber-900 mb-2">Drawing the Unseen</h1>
+            <p class="text-lg text-stone-600 max-w-3xl mx-auto">An interactive exploration of how contemporary artists appropriate informational aesthetics—maps, plans, diagrams, and data—to redefine the act of drawing.</p>
+        </header>
+
+        <nav class="mb-12 border-b border-stone-300">
+            <ul id="main-nav" class="flex flex-wrap justify-center -mb-px text-sm font-medium text-center text-stone-500">
+            </ul>
+        </nav>
+
+        <main id="content-container">
+        </main>
+    </div>
+
+    <div id="artist-modal" class="modal fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
+        <div class="modal-content bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div id="modal-body" class="p-6 md:p-8">
+            </div>
+            <div class="px-6 pb-6 text-right">
+                 <button onclick="closeModal()" class="bg-amber-800 text-white px-4 py-2 rounded-lg hover:bg-amber-900 transition-colors">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const appData = {
+            categories: [
+                { id: 'overview', name: 'Overview', icon: '&#9737;' },
+                { id: 'mapping', name: 'Mapping Space', icon: '&#127758;' },
+                { id: 'building', name: 'Building Worlds', icon: '&#127981;' },
+                { id: 'instructing', name: 'Giving Instructions', icon: '&#128221;' },
+                { id: 'revealing', name: 'Revealing Networks', icon: '&#128375;' },
+                { id: 'classifying', name: 'Classifying Knowledge', icon: '&#128214;' },
+                { id: 'interpreting', name: 'Interpreting Data', icon: '&#128202;' }
+            ],
+            artists: [
+                { 
+                    id: 'boetti', 
+                    category: 'mapping', 
+                    name: 'Alighiero Boetti',
+                    form: 'Political World Map',
+                    work: 'Mappa (1971-1994)',
+                    summary: 'Boetti used the world map as a conceptual system, delegating the embroidery of maps with national flags to craftswomen in Afghanistan. The work explores globalization, labor, and geopolitics, creating a dynamic record of human connection and political change.',
+                    viz: `<div class="w-full h-48 bg-stone-100 p-2 grid grid-cols-8 grid-rows-4 gap-1">${Array.from({length: 32}).map((_, i) => `<div class="w-full h-full" style="background-color: hsl(${i*25}, 60%, 70%)"></div>`).join('')}</div>`
+                },
+                { 
+                    id: 'perry', 
+                    category: 'mapping', 
+                    name: 'Grayson Perry',
+                    form: 'Historical Map',
+                    work: 'Map of an Englishman (2004)',
+                    summary: "Perry turns cartography inward to map the human psyche. Using the visual style of historical maps, he replaces geographical locations with psychological states like 'Sea of Anxiety' and 'Prejudice,' creating a satirical and confessional self-portrait.",
+                    viz: `<div class="w-full h-48 border-2 border-stone-300 bg-stone-50 relative flex items-center justify-center font-serif text-stone-500 text-xs"><div class="absolute top-2 left-2 border border-stone-400 p-1">Anxiety</div><div class="absolute bottom-2 right-2 border border-stone-400 p-1">Doubt</div><div class="w-32 h-32 rounded-full border-2 border-dashed border-stone-400 flex items-center justify-center">The Self</div></div>`
+                },
+                { 
+                    id: 'hatoum', 
+                    category: 'mapping', 
+                    name: 'Mona Hatoum',
+                    form: 'Airline Route Map',
+                    work: 'Routes II (2002)',
+                    summary: "Forged from her experience of exile, Hatoum draws personal, organic patterns over commercial airline route maps. The work visualizes the fragmented identity of the displaced, creating 'routes for the rootless' that defy political boundaries.",
+                     viz: `<div class="w-full h-48 bg-blue-50 relative overflow-hidden">${Array.from({length: 10}).map((_, i) => `<div class="absolute border-t border-dashed border-red-400" style="width:${Math.random()*50+50}%; left:${Math.random()*50}%; top:${i*10+5}%; transform: rotate(${Math.random()*40-20}deg);"></div>`).join('')}</div>`
+                },
+                { 
+                    id: 'hadid', 
+                    category: 'building', 
+                    name: 'Zaha Hadid',
+                    form: 'Architectural Painting',
+                    work: 'Paintings for The Peak (1983)',
+                    summary: 'Known as a "paper architect" early in her career, Hadid used dynamic, deconstructivist painting as a primary tool to generate architectural ideas. Her canvases explored fluidity and movement, serving as the genetic code for her revolutionary buildings.',
+                    viz: `<div class="w-full h-48 bg-gray-900 relative overflow-hidden">${Array.from({length: 8}).map((_, i) => `<div class="absolute bg-white" style="width:${Math.random()*40+20}%; height:2px; left:${Math.random()*50}%; top:${i*12.5}%; transform: rotate(${Math.random()*-25}deg); transform-origin: left;"></div><div class="absolute bg-red-500" style="width:${Math.random()*30+10}%; height:2px; right:${Math.random()*50}%; top:${i*12.5}%; transform: rotate(${Math.random()*25}deg); transform-origin: right;"></div>`).join('')}</div>`
+                },
+                { 
+                    id: 'lewitt_arch', 
+                    category: 'building', 
+                    name: 'Sol LeWitt',
+                    form: 'Architectural Plan / Instruction',
+                    work: 'Wall Drawings & Structures',
+                    summary: "LeWitt appropriated the logic of architecture by separating the concept from the execution. His artwork is the set of instructions, not the final object, stripping away function to focus on pure, systematic explorations of form and idea.",
+                    viz: `<div class="w-full h-48 bg-stone-100 p-4 grid grid-cols-4 gap-4">${Array.from({length: 12}).map(() => `<div class="border border-stone-400 w-full h-full"></div>`).join('')}</div>`
+                },
+                { 
+                    id: 'wurm', 
+                    category: 'instructing', 
+                    name: 'Erwin Wurm',
+                    form: 'Instructional Diagram',
+                    work: 'One Minute Sculptures (1990s-present)',
+                    summary: "Wurm's work consists of diagrammatic instructions directing viewers to hold poses with ordinary objects for one minute. The drawing is the manual, the body is the material, and the art is ephemeral, playfully subverting the nature of sculpture.",
+                    viz: `<div class="w-full h-48 border-2 border-stone-300 bg-stone-50 flex flex-col items-center justify-center p-4 text-center"><div class="w-8 h-16 border-2 border-stone-600 rounded-t-full"></div><div class="w-20 border-t-2 border-stone-600 my-2"></div><p class="text-xs text-stone-500">1. Place bucket on head. <br>2. Hold for 60 seconds.</p></div>`
+                },
+                { 
+                    id: 'ketter', 
+                    category: 'instructing', 
+                    name: 'Clay Ketter',
+                    form: 'IKEA Assembly Manual/Parts',
+                    work: 'Sculptures from IKEA elements',
+                    summary: 'Ketter reconfigures components from IKEA flat-pack furniture into large, wall-mounted assemblages that echo Minimalist art. He "baptizes" ready-made commercial products as art, exploring the intersection of art, design, and consumer culture.',
+                    viz: `<div class="w-full h-48 bg-stone-100 p-4 flex gap-2"><div class="w-1/3 h-full bg-white border border-stone-300 shadow-md"></div><div class="w-2/3 h-full flex flex-col gap-2"> <div class="w-full h-1/2 bg-white border border-stone-300 shadow-md"></div> <div class="w-full h-1/2 bg-white border border-stone-300 shadow-md"></div></div></div>`
+                },
+                { 
+                    id: 'lombardi', 
+                    category: 'revealing', 
+                    name: 'Mark Lombardi',
+                    form: 'Network Diagram',
+                    work: 'Narrative Structures',
+                    summary: "Lombardi's large, intricate drawings are meticulously researched maps of global financial and political scandals. He reinvented history painting for the information age, transforming dry data into elegant, constellation-like diagrams of corruption and power.",
+                    viz: `<div class="w-full h-48 bg-stone-50 relative">${Array.from({length: 8}).map((_, i) => `<div class="absolute rounded-full border border-red-500 bg-white" style="width:1rem; height:1rem; left: calc(${50 + 40 * Math.cos(i*Math.PI/4)}% - 0.5rem); top: calc(${50 + 40 * Math.sin(i*Math.PI/4)}% - 0.5rem);"></div>`).join('')}<div class="absolute w-10 h-10 rounded-full border-2 border-amber-800 bg-white top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div></div>`
+                },
+                { 
+                    id: 'dion', 
+                    category: 'classifying', 
+                    name: 'Mark Dion',
+                    form: 'Scientific Methodology',
+                    work: 'Dept. of Marine Animal Identification...',
+                    summary: 'Dion acts as an artist-archaeologist, appropriating scientific methods of collecting, ordering, and exhibiting. He critiques how institutions shape our understanding of nature, exposing the ideologies hidden within the supposedly neutral voice of science.',
+                    viz: `<div class="w-full h-48 bg-teal-50 p-4 grid grid-cols-4 gap-2">${Array.from({length: 8}).map(() => `<div class="bg-white/50 border border-teal-200 rounded-md flex items-center justify-center text-teal-600 text-2xl p-1">&#128031;</div>`).join('')}</div>`
+                },
+                { 
+                    id: 'raad', 
+                    category: 'classifying', 
+                    name: 'The Atlas Group (Walid Raad)',
+                    form: 'Historical Archive',
+                    work: 'The Atlas Group Project (1989-2004)',
+                    summary: "Raad's project is a fictional archive documenting the Lebanese Civil Wars. By creating meticulously detailed but fabricated documents, he uses the authoritative format of the archive to question its reliability and explore how trauma and memory resist straightforward historical narratives.",
+                    viz: `<div class="w-full h-48 bg-stone-200 p-4 flex flex-col gap-2"><div class="w-full h-1/3 bg-white shadow-sm border p-1 text-xs">[DOC_A-78-1.jpg]</div><div class="w-full h-1/3 bg-white shadow-sm border p-1 text-xs">[NOTEBOOK_V38_P12.txt]</div><div class="w-full h-1/3 bg-white shadow-sm border p-1 text-xs">[VID_EVIDENCE_BOMBING_4.mov]</div></div>`
+                },
+                { 
+                    id: 'miebach', 
+                    category: 'interpreting', 
+                    name: 'Nathalie Miebach',
+                    form: 'Scientific Data (Weather)',
+                    work: 'Sculptures from weather data',
+                    summary: "Miebach translates raw weather data into complex, woven sculptures and musical scores. Arguing that data has a 'poetic quality,' she gives tangible, sensory form to invisible natural forces, allowing us to perceive them in a new, emotionally engaging way.",
+                    viz: `<div class="w-full h-48 bg-blue-900 grid grid-cols-10 grid-rows-5 gap-px p-4">${Array.from({length: 50}).map((_, i) => `<div class="w-full h-full" style="background-color: white; opacity: ${Math.random()};"></div>`).join('')}</div>`
+                },
+                { 
+                    id: 'anadol', 
+                    category: 'interpreting', 
+                    name: 'Refik Anadol',
+                    form: 'AI-Generated Imagery',
+                    work: 'Unsupervised (2022)',
+                    summary: 'Anadol uses AI as his primary artistic tool, training models on vast datasets (like MoMA\'s collection) to "dream" new visual forms. He calls this "data painting," exploring creativity, memory, and perception in an age dominated by machine intelligence.',
+                    viz: `<div class="w-full h-48 bg-black relative">${Array.from({length: 100}).map((_, i) => `<div class="absolute rounded-full" style="width: ${Math.random()*20+5}px; height: ${Math.random()*20+5}px; background-color: hsl(${Math.random()*360}, 90%, 70%); left: ${Math.random()*100}%; top: ${Math.random()*100}%; animation: pulse 2s infinite alternate; animation-delay: ${Math.random()*2}s"></div>`).join('')}<style>@keyframes pulse { to { transform: scale(1.5); opacity: 0.5; } }</style></div>`
+                },
+            ]
+        };
+
+        const navContainer = document.getElementById('main-nav');
+        const contentContainer = document.getElementById('content-container');
+        const modal = document.getElementById('artist-modal');
+        const modalBody = document.getElementById('modal-body');
+
+        function initApp() {
+            renderNav();
+            renderContent();
+            setupNavEvents();
+            setupCardEvents();
+            showContent('overview');
+        }
+
+        function renderNav() {
+            navContainer.innerHTML = appData.categories.map(cat => `
+                <li class="mr-2">
+                    <a href="#" data-category="${cat.id}" class="nav-link inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-stone-600 hover:border-stone-300 transition-colors">
+                       <span class="hidden sm:inline">${cat.icon}</span> ${cat.name}
+                    </a>
+                </li>
+            `).join('');
+        }
+        
+        function renderContent() {
+             contentContainer.innerHTML = appData.categories.map(cat => {
+                if (cat.id === 'overview') {
+                    return `
+                        <div id="${cat.id}" class="content-section">
+                            <div class="bg-white/60 p-6 md:p-8 rounded-lg shadow-inner border border-stone-200 mb-12">
+                                <h2 class="text-2xl font-bold text-amber-900 mb-4 text-center">Visualizing the Research</h2>
+                                <p class="text-stone-600 text-center mb-6 max-w-2xl mx-auto">This chart provides an overview of the artists featured in this research, categorized by the primary type of informational system they appropriate. Hover over a section to see how many artists fall into each category, illustrating the diverse ways contemporary artists are expanding the definition of drawing.</p>
+                                <div class="chart-container">
+                                    <canvas id="overview-chart"></canvas>
+                                </div>
+                            </div>
+                             <div class="text-center">
+                                <p class="text-stone-600">Select a category above to begin exploring.</p>
+                             </div>
+                        </div>
+                    `;
+                }
+                const artistsInCategory = appData.artists.filter(a => a.category === cat.id);
+                const introText = getIntroText(cat.id);
+                return `
+                    <div id="${cat.id}" class="content-section" style="display: none;">
+                        <div class="mb-8 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-lg">
+                           <p class="text-amber-900">${introText}</p>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            ${artistsInCategory.map(artist => `
+                                <div class="artist-card bg-white rounded-lg shadow-md overflow-hidden cursor-pointer border border-stone-200" data-artist-id="${artist.id}">
+                                    <div class="p-5">
+                                        <h3 class="font-bold text-xl mb-1 text-amber-900">${artist.name}</h3>
+                                        <p class="text-sm text-stone-500">${artist.form}</p>
+                                    </div>
+                                    <div class="bg-stone-50 px-5 py-3 border-t border-stone-200">
+                                         <p class="text-xs text-right text-stone-600">Learn More &rarr;</p>
+                                    </div>
+              
